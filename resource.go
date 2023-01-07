@@ -47,9 +47,7 @@ func (r Resource) Name() string {
 }
 
 func (r *Resource) Start(_ context.Context) error {
-	opts := defaultOpts()
-
-	client, err := pulsar.NewClient(opts)
+	client, err := pulsar.NewClient(r.clientOpts)
 	if err != nil {
 		return err
 	}

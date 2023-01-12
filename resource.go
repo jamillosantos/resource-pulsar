@@ -5,10 +5,12 @@ import (
 	"time"
 
 	"github.com/apache/pulsar-client-go/pulsar"
+
+	"github.com/jamillosantos/resource-pulsar/consume"
 )
 
 type Resource struct {
-	pulsar.Client
+	Client     pulsar.Client
 	name       string
 	clientOpts pulsar.ClientOptions
 }
@@ -42,7 +44,7 @@ func applyConfig(clientOpts *pulsar.ClientOptions, cfg PlatformConfig) {
 	}
 }
 
-func (r Resource) Name() string {
+func (r *Resource) Name() string {
 	return r.name
 }
 
@@ -59,4 +61,25 @@ func (r *Resource) Start(_ context.Context) error {
 func (r *Resource) Stop(_ context.Context) error {
 	r.Client.Close()
 	return nil
+}
+
+func (r *Resource) Subscribe(cfg SubscriptionPlatformConfig, handler consume.MessageHandler, opts ...consume.Option) (*Consumer, error) {
+	consumerOpts := defaultConsumerOpts()
+	applyConsumerConfig(cfg, &consumerOpts)
+	for _, o := range opts {
+		o(&consumerOpts)
+	}
+	consumer, err := r.Client.Subscribe(consumerOpts)
+	if err != nil {
+		return nil, err
+	}
+	return &Consumer{Consumer: consumer, handleMessage: handler}, nil
+}
+
+func applyConsumerConfig(cfg SubscriptionPlatformConfig, opts *pulsar.ConsumerOptions) {
+	opts.Name = cfg.Name
+	opts.Topic = cfg.Topic
+	opts.Topics = cfg.Topics
+	opts.TopicsPattern = cfg.TopicsPattern
+	opts.SubscriptionName = cfg.SubscriptionName
 }

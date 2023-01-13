@@ -23,7 +23,12 @@ type Consumer struct {
 
 	handleMessage consume.MessageHandler
 
+	name     string
 	Consumer pulsar.Consumer
+}
+
+func (c *Consumer) Name() string {
+	return c.name
 }
 
 // Listen performs the

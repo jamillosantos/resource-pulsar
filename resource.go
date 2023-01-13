@@ -73,7 +73,11 @@ func (r *Resource) Subscribe(cfg SubscriptionPlatformConfig, handler consume.Mes
 	if err != nil {
 		return nil, err
 	}
-	return &Consumer{Consumer: consumer, handleMessage: handler}, nil
+	return &Consumer{
+		name:          cfg.Name,
+		Consumer:      consumer,
+		handleMessage: handler,
+	}, nil
 }
 
 func applyConsumerConfig(cfg SubscriptionPlatformConfig, opts *pulsar.ConsumerOptions) {

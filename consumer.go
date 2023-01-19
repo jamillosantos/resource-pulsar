@@ -59,7 +59,7 @@ func (c *Consumer) receiveAndProcessMessage() error {
 		// TODO What are the errors contained here?
 		return err
 	}
-	h := c.handleMessage(msg)
+	h := c.handleMessage(c.context, msg)
 	if h != nil {
 		return h(c.Consumer, msg)
 	}

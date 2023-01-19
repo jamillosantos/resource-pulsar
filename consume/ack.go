@@ -1,13 +1,14 @@
 package consume
 
 import (
+	"context"
 	"time"
 
 	"github.com/apache/pulsar-client-go/pulsar"
 )
 
 // MessageHandler is a function that will be called everytime a message arrives at a consumer.
-type MessageHandler func(msg pulsar.Message) MessageHandlerResult
+type MessageHandler func(ctx context.Context, msg pulsar.Message) MessageHandlerResult
 
 // MessageHandlerResult will be returned by the MessageHandler. The MessageHandlerResult will Ack/Nack the message.
 type MessageHandlerResult func(consumer pulsar.Consumer, msg pulsar.Message) error

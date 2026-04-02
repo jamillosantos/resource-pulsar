@@ -3,6 +3,7 @@ package rscpulsar
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,7 +24,7 @@ func createRsc(t *testing.T) *Resource {
 	// pulls an image, creates a container based on it and runs it
 	dockerRsc, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   "apachepulsar/pulsar",
-		Tag:          "2.10.2",
+		Tag:          "4.0.3",
 		Cmd:          []string{"bin/pulsar", "standalone"},
 		ExposedPorts: []string{"6650", "8080"},
 	})
@@ -67,20 +68,23 @@ func TestResource_Subscribe(t *testing.T) {
 	rsc := createRsc(t)
 
 	topicName := uuid.New().String()
-	fullTopicName := "non-persistent://public/default/" + topicName
+	fullTopicName := "persistent://public/default/" + topicName
 
 	var (
 		consumer *Consumer
+		mu       sync.Mutex
 		gotData  = make([]uuid.UUID, 0)
 	)
 	require.Eventuallyf(t, func() bool {
 		c, err := rsc.Subscribe(SubscriptionPlatformConfig{
 			SubscriptionName: "subscription-" + topicName,
 			Topic:            fullTopicName,
-		}, func(msg pulsar.Message) consume.MessageHandlerResult {
+		}, func(ctx context.Context, msg pulsar.Message) consume.MessageHandlerResult {
 			d, err := uuid.FromBytes(msg.Payload())
 			require.NoError(t, err, "failed parsing message payload into an UUID")
+			mu.Lock()
 			gotData = append(gotData, d)
+			mu.Unlock()
 			return consume.Ack()
 		})
 		if err != nil {
@@ -115,9 +119,13 @@ func TestResource_Subscribe(t *testing.T) {
 	}
 
 	require.Eventuallyf(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
 		return len(gotData) == len(wantData)
-	}, 10*time.Second, 10*time.Millisecond, "pulsar is not ready")
+	}, 30*time.Second, 10*time.Millisecond, "messages not received")
 
+	mu.Lock()
+	defer mu.Unlock()
 	require.Equal(t, wantData, gotData)
 
 	require.NoError(t, rsc.Stop(context.Background()), "failed closing resource")

@@ -30,7 +30,7 @@ func createRsc(t *testing.T) *Resource {
 	})
 	require.NoError(t, err, "failed starting redis")
 	t.Cleanup(func() {
-		dockerRsc.Close()
+		_ = dockerRsc.Close()
 	})
 
 	var hostPort string

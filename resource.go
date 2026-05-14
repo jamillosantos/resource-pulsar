@@ -73,10 +73,18 @@ func (r *Resource) Subscribe(cfg SubscriptionPlatformConfig, handler consume.Mes
 	if err != nil {
 		return nil, err
 	}
+
+	keyer := cfg.Keyer
+	if keyer == nil && cfg.Workers > 1 {
+		keyer = defaultKeyerFor(consumerOpts.Type)
+	}
+
 	return &Consumer{
 		name:          cfg.Name,
 		Consumer:      consumer,
 		handleMessage: handler,
+		workers:       cfg.Workers,
+		keyer:         keyer,
 	}, nil
 }
 
@@ -86,4 +94,34 @@ func applyConsumerConfig(cfg SubscriptionPlatformConfig, opts *pulsar.ConsumerOp
 	opts.Topics = cfg.Topics
 	opts.TopicsPattern = cfg.TopicsPattern
 	opts.SubscriptionName = cfg.SubscriptionName
+	// Zero is ambiguous (pulsar.Exclusive == 0 and "field unset" look the
+	// same). Preserve the legacy default — leave Type alone unless the
+	// caller chose a non-zero value.
+	if cfg.Type != 0 {
+		opts.Type = cfg.Type
+	}
 }
+
+// defaultKeyerFor returns a Keyer that matches the ordering semantics of
+// the subscription type. Returning nil means "use the round-robin
+// counter path" (only safe for Shared subscriptions, where no order is
+// guaranteed).
+func defaultKeyerFor(t pulsar.SubscriptionType) Keyer {
+	switch t {
+	case pulsar.KeyShared:
+		return keyByMessageKey
+	case pulsar.Exclusive, pulsar.Failover:
+		return constantKeyer
+	default:
+		return nil
+	}
+}
+
+func keyByMessageKey(m pulsar.Message) string {
+	if k := m.Key(); k != "" {
+		return k
+	}
+	return m.OrderingKey()
+}
+
+func constantKeyer(_ pulsar.Message) string { return "" }
